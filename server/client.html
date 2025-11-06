@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flask-SocketIO Server - CORS Working!</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        #messages { height: 200px; overflow-y: scroll; border: 1px solid #eee; padding: 10px; border-radius: 3px; }
+        input, button { margin: 5px; padding: 8px; }
+        .message { margin: 5px 0; }
+        .system { color: #666; font-style: italic; }
+        #rest-results { background: #f5f5f5; padding: 10px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Flask-SocketIO - TRIPLE-LAYER CORS PROTECTION!</h1>
+    
+    <div class="section">
+        <h3>📡 REST API Test (Manual Headers + Decorators + Global Handlers)</h3>
+        <button onclick="testHealth()">Health Check</button>
+        <button onclick="getMessages()">Get Messages</button>
+        <button onclick="sendRestMessage()">Send Message via REST</button>
+        <button onclick="getRooms()">Get Rooms</button>
+        <div id="rest-results"></div>
+    </div>
+    
+    <div class="section">
+        <h3>🔌 Socket.IO Test</h3>
+        <input type="text" id="username" placeholder="Username" value="WebUser">
+        <input type="text" id="room" placeholder="Room" value="general">
+        <button onclick="joinRoom()">Join Room</button>
+        <button onclick="getRoomInfo()">Room Info</button>
+        <br>
+        <input type="text" id="messageInput" placeholder="Type message...">
+        <button onclick="sendMessage()">Send via Socket.IO</button>
+        <div id="messages"></div>
+    </div>
+    
+    <script>
+        // Connect to Flask-SocketIO (default path works perfectly)
+        const url_prefix = 'http://127.0.0.1:5000'
+        const socket = io(`${url_prefix}`);
+        
+        // Socket.IO events
+        socket.on('connect', () => {
+            addMessage('Connected to Flask-SocketIO server', 'system');
+        });
+        
+        socket.on('welcome', (data) => {
+            addMessage('Server: ' + data.message, 'system');
+        });
+        
+        socket.on('new_message', (data) => {
+            addMessage(`${data.username}: ${data.message}`);
+        });
+        
+        socket.on('user_joined', (data) => {
+            addMessage(`${data.message} (${data.user_count} users)`, 'system');
+        });
+        
+        socket.on('user_left', (data) => {
+            addMessage(`${data.message} (${data.user_count} users)`, 'system');
+        });
+        
+        // Helper functions
+        function addMessage(message, type = 'normal') {
+            const div = document.createElement('div');
+            div.className = 'message ' + (type === 'system' ? 'system' : '');
+            div.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        }
+        
+        function showRestResult(data) {
+            document.getElementById('rest-results').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }
+        
+        // REST API functions
+        async function testHealth() {
+            const response = await fetch(`${url_prefix}/api/health`);
+            const data = await response.json();
+            showRestResult(data);
+        }
+        
+        async function getMessages() {
+            const response = await fetch(`${url_prefix}/api/messages?limit=10`);
+            const data = await response.json();
+            showRestResult(data);
+        }
+        
+        async function sendRestMessage() {
+            const response = await fetch(`${url_prefix}/api/messages`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    message: 'Hello from REST with TRIPLE-LAYER CORS!',
+                    username: 'REST_User',
+                    room: document.getElementById('room').value || 'general'
+                })
+            });
+            const data = await response.json();
+            showRestResult(data);
+        }
+        
+        async function getRooms() {
+            const response = await fetch(`${url_prefix}/api/rooms`);
+            const data = await response.json();
+            showRestResult(data);
+        }
+        
+        // Socket.IO functions
+        function joinRoom() {
+            const username = document.getElementById('username').value;
+            const room = document.getElementById('room').value;
+            
+            socket.emit('join_room', {username, room}, (response) => {
+                addMessage('Joined: ' + JSON.stringify(response), 'system');
+            });
+        }
+        
+        function getRoomInfo() {
+            socket.emit('get_room_info', {}, (response) => {
+                addMessage('Room Info: ' + JSON.stringify(response), 'system');
+            });
+        }
+        
+        function sendMessage() {
+            const message = document.getElementById('messageInput').value;
+            if (message.trim()) {
+                socket.emit('send_message', {message}, (response) => {
+                    if (response.error) {
+                        addMessage('Error: ' + response.error, 'system');
+                    }
+                });
+                document.getElementById('messageInput').value = '';
+            }
+        }
+        
+        // Enter key support
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
